@@ -19,7 +19,6 @@ Mọi thứ nó vẫn chạy ngon lành và chẳng ai để ý đến Performan
 Bắt đầu check code nào &gt;&lt;
 
 ```typescript
-let dataRow = 1;
 
 const createInfoArr = [];
 let rowStart = 1;
