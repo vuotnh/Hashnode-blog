@@ -14,7 +14,9 @@ Bắt đầu vào cái chủ đề ngày hôm nay là "*Làm sao để tối ưu
 
 ![](https://cdn.hashnode.com/res/hashnode/image/upload/v1694875321857/54e590d6-b60f-4c13-8985-469ff0c19486.png align="center")
 
-Mọi thứ nó vẫn chạy ngon lành và chẳng ai để ý đến Performance (vì lúc test chỉ thử với file ít dữ liệu thôi). Cho đến một ngày,.... mình nhận file excel data từ khách hàng. Bùm =))) file dữ liệu 10Mb. Data to thì không phải là to nhưng mà code của mình nó chạy hết 15p / 100000 row (●'◡'●). Không ổn!!!!!!!!!!!!!. Đang loay hoay tìm cách fixx thì mình đọc được cái blog của anh ***Minh Monmen*** về đúng cái vấn đề này luôn ([<mark>link nè</mark>](https://viblo.asia/s/chuyen-anh-tho-xay-va-write-heavy-application-24lJDz46KPM)) và mình quyết định thử áp dụng với cái code hổ lốn của mình 😊.
+Mọi thứ nó vẫn chạy ngon lành và chẳng ai để ý đến Performance (vì lúc test chỉ thử với file ít dữ liệu thôi). Cho đến một ngày,.... mình nhận file excel data từ khách hàng. Bùm =))) file dữ liệu 10Mb. Data to thì không phải là to nhưng mà code của mình nó chạy hết 20p / 100000 row (●'◡'●). Không ổn!!!!!!!!!!!!!. Đang loay hoay tìm cách fixx thì mình đọc được cái blog của anh ***Minh Monmen*** về đúng cái vấn đề này luôn ([<mark>link nè</mark>](https://viblo.asia/s/chuyen-anh-tho-xay-va-write-heavy-application-24lJDz46KPM)) và mình quyết định thử áp dụng với cái code hổ lốn của mình 😊.
+
+![](https://cdn.hashnode.com/res/hashnode/image/upload/v1694923367279/5e789b92-4847-4aaf-bac3-2076b0a82e8e.png align="center")
 
 Bắt đầu check code nào &gt;&lt;
 
@@ -119,7 +121,9 @@ while (dataRow) {
 }
 ```
 
-Sau khi chạy thử cách này thì mình thấy có vẻ như thời gian không cải thiện hơn được là bao (15p → 12p), ngoài ra nó còn bị thêm một tác dụng phụ là khi tiến trình *INSERT* đang thực thi thì việc đọc dữ liệu từ database sẽ bị treo, và nếu có một tiến trình khác tạo connection đến DB thì tiến trình *INSERT* sẽ bị ngắt → import failed (┬┬﹏┬┬). (Mình cũng không hiểu nguyên nhân là do đâu nên bác nào biết thì comment chia sẻ vs mình nhé 😍).
+Sau khi chạy thử cách này thì mình thấy thời gian được cải thiện hơn đáng kể =)) (15p → 5p). Tưởng ngon rồi thì nó lại bị một tác dụng phụ là khi tiến trình *INSERT* đang thực thi thì việc đọc dữ liệu từ database sẽ bị treo, và nếu có một tiến trình khác tạo connection đến DB thì tiến trình *INSERT* sẽ bị ngắt → import failed (┬┬﹏┬┬). (Mình cũng không hiểu nguyên nhân là do đâu nên bác nào biết thì comment chia sẻ vs mình nhé 😍).
+
+![](https://cdn.hashnode.com/res/hashnode/image/upload/v1694924132440/147dac33-c416-400f-a73c-1fe16938806e.png align="center")
 
 #### Cách 2:
 
@@ -164,7 +168,7 @@ while (dataRow) {
 }
 ```
 
-Với cách làm như này thì ta sẽ tận dụng được tối đa số lượng connection trong connection pool mà driver Oracle có thể tạo ra. Mình đã giảm số thời gian gọi đến database của tiến trình, giảm từ (15p xuống còn 3p / 100000 row).
+Với cách làm như này thì ta sẽ tận dụng được tối đa số lượng connection trong connection pool mà driver Oracle có thể tạo ra. Mình đã giảm số thời gian gọi đến database của tiến trình, giảm từ (15p xuống còn 3p / 100000 row). Ngoài ra các tiến trình khác có thể gọi database thoải mái mà ko bị failed :v.
 
 Ở đây chắc nhiều bạn sẽ hỏi vì sao dùng 100 connection mà thời gian lại ko giảm xuống 100 lần thì ở blog [<mark>này</mark>](https://viblo.asia/p/chuyen-anh-tho-xay-p1-build-a-write-heavy-application-V3m5WQrEZO7) đã giải thích vô cùng dễ hiểu nên do trình văn vở thấp mình không giải thích lại nữa nhé 😁😁.
 
