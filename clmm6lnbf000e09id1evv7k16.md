@@ -152,7 +152,7 @@ while (dataRow) {
               .value?.toString(),
     };
     chunk.push(
-        await getManager()
+        getManager()
               .createQueryBuilder()
               .insert()
               .into(InfoEntity)
