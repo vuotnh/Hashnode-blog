@@ -65,3 +65,118 @@ Việc sử dụng save transaction sẽ mất nhiều thời gian hơn vì
     
 
 Với các task insert dữ liệu từ file excel thì mình thường xoá dữ liệu trước đó và insert thêm dữ liệu hoàn toàn mới vào. Nên giải pháp ở đây là sẽ dùng *INSERT TRANSACTION* thay cho *SAVE TRANSACTION*.
+
+### Vấn đề số 2: tối ưu hoá việc gọi database
+
+Với code hiện tại, tiến trình *INSERT* chỉ dùng duy nhất một *connection* trong *Connection Pool* của TypeORM nên việc nó ngốn thời gian chạy một cách kinh khủng cũng là điều dễ hiểu =))). Theo blog của anh ***Minh Monmen*** thì mình có một số hướng thay đổi:
+
+* **Cách 1**: sử dụng Bulk Insert, tức là ta sẽ gom 100 bản ghi vào một lần gọi lệnh *INSERT*, mỗi lần chạy *INSERT* sẽ sử dụng 1 connection và chạy đồng bộ
+    
+    ![](https://s3-ap-southeast-1.amazonaws.com/kipalog.com/xsflr1myyg_writeheavy3.png align="left")
+    
+* **Cách 2**: Mỗi lần INSERT 1 bản ghi gom 100 Promises của lời gọi INSERT và chạy đồng bộ một lần.
+    
+    ![](https://s3-ap-southeast-1.amazonaws.com/kipalog.com/ts8y80m1pb_writeheavy3.2.png align="left")
+    
+
+#### Cách 1:
+
+Code của nó sẽ như này:
+
+```typescript
+const createInfoArr = [];
+let rowStart = 1;
+let cellStart = 1;
+let chunk = []
+let count = 1;
+while (dataRow) {
+    count += 1;
+    chunk.push({
+          firstName: wSheet
+              .getRow(rowStart)
+              .getCell(cellStart)
+              .value?.toString(),
+          lastName: wSheet
+              .getRow(rowStart)
+              .getCell(cellStart + 1)
+              .value?.toString(),
+          address: wSheet
+              .getRow(rowStart)
+              .getCell(cellStart + 2)
+              .value?.toString(),
+    });
+    rowStart += 1;
+    dataRow = wSheet.getRow(rowStart).getCell(cellStart).value;
+    if (count % 100 === 0) {
+        await getManager()
+              .createQueryBuilder()
+              .insert()
+              .into(InfoEntity)
+              .values(chunk)
+              .execute();
+        chunk = [];
+    }
+}
+```
+
+Sau khi chạy thử cách này thì mình thấy có vẻ như thời gian không cải thiện hơn được là bao (15p → 12p), ngoài ra nó còn bị thêm một tác dụng phụ là khi tiến trình *INSERT* đang thực thi thì việc đọc dữ liệu từ database sẽ bị treo, và nếu có một tiến trình khác tạo connection đến DB thì tiến trình *INSERT* sẽ bị ngắt → import failed (┬┬﹏┬┬). (Mình cũng không hiểu nguyên nhân là do đâu nên bác nào biết thì comment chia sẻ vs mình nhé 😍).
+
+#### Cách 2:
+
+Code sẽ như này
+
+```typescript
+const createInfoArr = [];
+let rowStart = 1;
+let cellStart = 1;
+let chunk = []
+let count = 1;
+while (dataRow) {
+    count += 1;
+    const newRecord = {
+          firstName: wSheet
+              .getRow(rowStart)
+              .getCell(cellStart)
+              .value?.toString(),
+          lastName: wSheet
+              .getRow(rowStart)
+              .getCell(cellStart + 1)
+              .value?.toString(),
+          address: wSheet
+              .getRow(rowStart)
+              .getCell(cellStart + 2)
+              .value?.toString(),
+    };
+    chunk.push(
+        await getManager()
+              .createQueryBuilder()
+              .insert()
+              .into(InfoEntity)
+              .values(chunk)
+              .execute();
+    )
+    if (count  % 100 === 0) {
+           await Promise.all(chunk);
+           chunk = [];
+    }
+    rowStart += 1;
+    dataRow = wSheet.getRow(rowStart).getCell(cellStart).value;
+}
+```
+
+Với cách làm như này thì ta sẽ tận dụng được tối đa số lượng connection trong connection pool mà driver Oracle có thể tạo ra. Mình đã giảm số thời gian gọi đến database của tiến trình, giảm từ (15p xuống còn 3p / 100000 row).
+
+Ở đây chắc nhiều bạn sẽ hỏi vì sao dùng 100 connection mà thời gian lại ko giảm xuống 100 lần thì ở blog [<mark>này</mark>](https://viblo.asia/p/chuyen-anh-tho-xay-p1-build-a-write-heavy-application-V3m5WQrEZO7) đã giải thích vô cùng dễ hiểu nên do trình văn vở thấp mình không giải thích lại nữa nhé 😁😁.
+
+## Tổng kết
+
+Sau cái task này thì mình đúc rút ra được một vài điều:
+
+* **Database không phế, code phế** 😒
+    
+* ***Await* một cách hợp lí sẽ không làm chậm code mà còn làm nó nhanh hơn á**
+    
+* **Thay vì chăm lướt FB thì chăm đi đọc blog nhé =)), biết đâu ngày đẹp trời nào đó sẽ cần**
+    
+
+Hẹn gặp lại em trong các post tiếp theo nhaaa ^^^^. Nhớ cho em một follow, link e để dưới phần mô tả nhé :))).
